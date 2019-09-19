@@ -30,15 +30,15 @@ import pytest
 import subprocess
 import time
 
-import libqtile
 import libqtile.layout
 import libqtile.bar
-import libqtile.command
 import libqtile.widget
 import libqtile.core.manager
 import libqtile.config
 import libqtile.hook
 import libqtile.confreader
+from libqtile.command_interface import CommandError, CommandException
+from libqtile.lazy import lazy
 
 
 from .conftest import whereis, BareConfig, no_xinerama, Retry
@@ -64,12 +64,12 @@ class ManagerConfig:
         libqtile.config.Key(
             ["control"],
             "k",
-            libqtile.command._Call([("layout", None)], "up")
+            lazy.layout.up(),
         ),
         libqtile.config.Key(
             ["control"],
             "j",
-            libqtile.command._Call([("layout", None)], "down")
+            lazy.layout.down(),
         ),
     ]
     mouse = []
@@ -161,7 +161,7 @@ def test_togroup(qtile):
     self = qtile
 
     self.test_window("one")
-    with pytest.raises(libqtile.command.CommandError):
+    with pytest.raises(CommandError):
         self.c.window.togroup("nonexistent")
     assert self.c.groups()["a"]["focus"] == "one"
     self.c.window.togroup("a")
@@ -209,7 +209,7 @@ def test_keypress(qtile):
 
     self.test_window("one")
     self.test_window("two")
-    with pytest.raises(libqtile.command.CommandError):
+    with pytest.raises(CommandError):
         self.c.simulate_keypress(["unknown"], "j")
     assert self.c.groups()["a"]["focus"] == "two"
     self.c.simulate_keypress(["control"], "j")
@@ -326,7 +326,7 @@ def test_adddelgroup(qtile):
 
     for i in list(self.c.groups().keys())[:-1]:
         self.c.delgroup(i)
-    with pytest.raises(libqtile.command.CommandException):
+    with pytest.raises(CommandException):
         self.c.delgroup(list(self.c.groups().keys())[0])
 
     # Assert that setting layout via cmd_addgroup works
@@ -342,7 +342,7 @@ def test_delgroup(qtile):
     self.test_window("one")
     for i in ['a', 'd', 'c']:
         self.c.delgroup(i)
-    with pytest.raises(libqtile.command.CommandException):
+    with pytest.raises(CommandException):
         self.c.delgroup('b')
 
 
@@ -429,14 +429,14 @@ def test_default_float(qtile):
     assert self.c.window.info()['y'] == 208
     assert self.c.window.info()['floating'] is True
 
-    self.c.window.move_floating(10, 20, 42, 42)
+    self.c.window.move_floating(10, 20)
     assert self.c.window.info()['width'] == 164
     assert self.c.window.info()['height'] == 164
     assert self.c.window.info()['x'] == 328
     assert self.c.window.info()['y'] == 228
     assert self.c.window.info()['floating'] is True
 
-    self.c.window.set_position_floating(10, 20, 42, 42)
+    self.c.window.set_position_floating(10, 20)
     assert self.c.window.info()['width'] == 164
     assert self.c.window.info()['height'] == 164
     assert self.c.window.info()['x'] == 10
@@ -461,7 +461,7 @@ def test_last_float_size(qtile):
     assert self.c.window.info()['width'] == 150
     assert self.c.window.info()['height'] == 100
     # resize
-    self.c.window.set_size_floating(50, 90, 42, 42)
+    self.c.window.set_size_floating(50, 90)
     assert self.c.window.info()['width'] == 50
     assert self.c.window.info()['height'] == 90
     # back to not floating
@@ -673,7 +673,7 @@ def test_floating_focus(qtile):
     assert self.c.window.info()['width'] == 398
     assert self.c.window.info()['height'] == 578
     self.c.window.toggle_floating()
-    self.c.window.move_floating(10, 20, 42, 42)
+    self.c.window.move_floating(10, 20)
     assert self.c.window.info()['name'] == 'xeyes'
     assert self.c.group.info()['focus'] == 'xeyes'
     # check what stack thinks is focus
@@ -725,25 +725,25 @@ def test_move_floating(qtile):
     self.c.window.toggle_floating()
     assert self.c.window.info()['floating'] is True
 
-    self.c.window.move_floating(10, 20, 42, 42)
+    self.c.window.move_floating(10, 20)
     assert self.c.window.info()['width'] == 150
     assert self.c.window.info()['height'] == 100
     assert self.c.window.info()['x'] == 10
     assert self.c.window.info()['y'] == 20
 
-    self.c.window.set_size_floating(50, 90, 42, 42)
+    self.c.window.set_size_floating(50, 90)
     assert self.c.window.info()['width'] == 50
     assert self.c.window.info()['height'] == 90
     assert self.c.window.info()['x'] == 10
     assert self.c.window.info()['y'] == 20
 
-    self.c.window.resize_floating(10, 20, 42, 42)
+    self.c.window.resize_floating(10, 20)
     assert self.c.window.info()['width'] == 60
     assert self.c.window.info()['height'] == 110
     assert self.c.window.info()['x'] == 10
     assert self.c.window.info()['y'] == 20
 
-    self.c.window.set_size_floating(10, 20, 42, 42)
+    self.c.window.set_size_floating(10, 20)
     assert self.c.window.info()['width'] == 10
     assert self.c.window.info()['height'] == 20
     assert self.c.window.info()['x'] == 10
@@ -938,13 +938,6 @@ def test_unmap_noscreen(qtile):
     assert self.c.groups()["a"]["focus"] == "one"
 
 
-# def test_init():
-#     with pytest.raises(libqtile.core.manager.QtileError):
-#         libqtile.config.Key([], "unknown", libqtile.command._Call("base", None, "foo"))
-#     with pytest.raises(libqtile.core.manager.QtileError):
-#         libqtile.config.Key(["unknown"], "x", libqtile.command._Call("base", None, "foo"))
-
-
 class TScreen(libqtile.config.Screen):
     def set_group(self, x, save_prev=True):
         pass
@@ -994,12 +987,12 @@ class _Config:
         libqtile.config.Key(
             ["control"],
             "k",
-            libqtile.command._Call([("layout", None)], "up")
+            lazy.layout.up(),
         ),
         libqtile.config.Key(
             ["control"],
             "j",
-            libqtile.command._Call([("layout", None)], "down")
+            lazy.layout.down(),
         ),
     ]
     mouse = []

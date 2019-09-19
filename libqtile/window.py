@@ -25,10 +25,10 @@ import warnings
 from xcffib.xproto import EventMask, StackMode, SetMode
 import xcffib.xproto
 
-from . import command
 from . import utils
 from . import hook
 from .log_utils import logger
+from libqtile.command_object import CommandObject, CommandError
 
 
 # ICCM Constants
@@ -151,7 +151,7 @@ def _float_setter(attr):
     return setter
 
 
-class _Window(command.CommandObject):
+class _Window(CommandObject):
     _window_mask = 0  # override in child class
 
     def __init__(self, window, qtile):
@@ -1033,7 +1033,7 @@ class Window(_Window):
         else:
             group = self.qtile.groups_map.get(group_name)
             if group is None:
-                raise command.CommandError("No such group: %s" % group_name)
+                raise CommandError("No such group: %s" % group_name)
 
         if self.group is not group:
             self.hide()
@@ -1055,7 +1055,7 @@ class Window(_Window):
             try:
                 screen = self.qtile.screens[index]
             except IndexError:
-                raise command.CommandError('No such screen: %d' % index)
+                raise CommandError('No such screen: %d' % index)
         self.togroup(screen.group.name)
 
     def match(self, wname=None, wmclass=None, role=None):
@@ -1324,19 +1324,19 @@ class Window(_Window):
         """
         self.toscreen(index)
 
-    def cmd_move_floating(self, dx, dy, curx, cury):
+    def cmd_move_floating(self, dx, dy):
         """Move window by dx and dy"""
         self.tweak_float(dx=dx, dy=dy)
 
-    def cmd_resize_floating(self, dw, dh, curx, cury):
+    def cmd_resize_floating(self, dw, dh):
         """Add dw and dh to size of window"""
         self.tweak_float(dw=dw, dh=dh)
 
-    def cmd_set_position_floating(self, x, y, curx, cury):
+    def cmd_set_position_floating(self, x, y):
         """Move window to x and y"""
         self.tweak_float(x=x, y=y)
 
-    def cmd_set_size_floating(self, w, h, curx, cury):
+    def cmd_set_size_floating(self, w, h):
         """Set window dimensions to w and h"""
         self.tweak_float(w=w, h=h)
 
@@ -1416,13 +1416,14 @@ class Window(_Window):
         return (window.edges[0] <= x <= window.edges[2] and
                 window.edges[1] <= y <= window.edges[3])
 
-    def cmd_set_position(self, dx, dy, curx, cury):
+    def cmd_set_position(self, dx, dy):
         if self.floating:
             self.tweak_float(dx, dy)
             return
         for window in self.group.windows:
             if window == self or window.floating:
                 continue
+            curx, cury = self.qtile.get_mouse_position()
             if self._is_in_window(curx, cury, window):
                 clients = self.group.layout.clients
                 index1 = clients.index(self)
